@@ -11,7 +11,7 @@ exports.handler = async (event) => {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.parse('Method not allowed'),
+            body: JSON.stringify({'error': 'Method not allowed'}),
         };
     }
 
