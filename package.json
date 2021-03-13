@@ -1,0 +1,14 @@
+{
+  "name": "kgaogelo",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "netlify-lambda build"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "netlify-lambda": "^2.0.3"
+  }
+}
