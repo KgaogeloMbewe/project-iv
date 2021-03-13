@@ -4,11 +4,19 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "netlify-lambda build"
+    "build": "netlify-lambda build functions"
   },
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "amqplib": "^0.7.1",
     "netlify-lambda": "^2.0.3"
+  },
+  "devDependencies": {
+    "eslint": "^7.22.0",
+    "eslint-config-standard": "^16.0.2",
+    "eslint-plugin-import": "^2.22.1",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^4.3.1"
   }
 }
