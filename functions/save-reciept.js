@@ -8,7 +8,10 @@ exports.handler = async (event) => {
 
         return {
             statusCode: 405,
-            body: 'Method not allowed',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.parse('Method not allowed'),
         };
     }
 
@@ -30,7 +33,10 @@ exports.handler = async (event) => {
 
         return {
             statusCode: 200,
-            body: "Hello World",
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify('Successful'),
         };
     } catch (error) {
         console.log(error);
