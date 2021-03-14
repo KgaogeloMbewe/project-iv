@@ -2,6 +2,8 @@ require('dotenv').config();
 
 const process = require('process');
 const amqp = require('amqplib');
+const isPlainObject = require('lodash.isplainobject');
+const isEmpty = require('lodash.isempty');
 
 const url = process.env.RABBITMQ_URL;
 
@@ -19,13 +21,16 @@ exports.handler = async (event) => {
     }
 
     try {
+        const msg = JSON.parse(event.body);
+
+        if (!isPlainObject(msg) || isEmpty(msg)) {
+            throw new SyntaxError('Data sent through is not a PlainObject');
+        }
+
         const conn = await amqp.connect(url);
         const channel = await conn.createChannel();
 
-        //TODO: Add logic to check if event.body has content
-
         const queue = 'raw-data';
-        const msg = event.body;
         await channel.assertQueue(queue, { durable: true });
         channel.sendToQueue(queue, Buffer.from(msg), { persistent: true });
 
@@ -42,14 +47,25 @@ exports.handler = async (event) => {
             body: JSON.stringify({'msg': 'Successful'}),
         };
     } catch (error) {
-        console.log(error);
+        console.log(`(>_<") A [${error.name}] occurred on line ${error.lineNumber}: ${error.message} | ${error.stack}`);
 
-        return {
-            statusCode: 500,
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({'error': 'An Error occurred'}),
+        if (error instanceof SyntaxError) {
+            //Probably JSON sent to the API is flop
+            return {
+                statusCode: 400,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({'error': 'An Error occurred. The data sent through is not a properly structured JSON object'}),
+            }
+        } else {
+            return {
+                statusCode: 500,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({'error': 'An Error occurred. Please try again later.'}),
+            }
         }
     }
 };
