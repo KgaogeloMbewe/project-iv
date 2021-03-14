@@ -1,6 +1,9 @@
+require('dotenv').config();
+
+const process = require('process');
 const amqp = require('amqplib');
 
-const url = "amqps://xrgawglz:9bwYNG_BuoeVu10TBSY70fW6trZdHVVp@rattlesnake.rmq.cloudamqp.com/xrgawglz";
+const url = process.env.RABBITMQ_URL;
 
 exports.handler = async (event) => {
     if (event.httpMethod !== 'POST') {

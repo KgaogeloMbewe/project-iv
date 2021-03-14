@@ -1,6 +1,9 @@
-const amqp = require('amqplib');
+require('dotenv').config();
 
-const url = "amqps://xrgawglz:9bwYNG_BuoeVu10TBSY70fW6trZdHVVp@rattlesnake.rmq.cloudamqp.com/xrgawglz";
+const amqp = require('amqplib');
+const process = require('process');
+
+const url = process.env.RABBITMQ_URL;
 
 exports.handler = async () => {
     try {
