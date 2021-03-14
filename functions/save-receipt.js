@@ -36,7 +36,7 @@ exports.handler = async (event) => {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify('Successful'),
+            body: JSON.stringify({'msg': 'Successful'}),
         };
     } catch (error) {
         console.log(error);
@@ -46,7 +46,7 @@ exports.handler = async (event) => {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify('An Error occurred'),
+            body: JSON.stringify({'error': 'An Error occurred'}),
         }
     }
 };
