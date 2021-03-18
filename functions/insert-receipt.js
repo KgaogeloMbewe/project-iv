@@ -22,9 +22,7 @@ exports.handler = async () => {
         await channel.consume(queue, async (data) => {
             msg = JSON.parse(data.content);
 
-            console.log(msg);
-
-            // channel.ack(data);
+            channel.ack(data);
         }, {noAck: false});
 
         try {
@@ -45,15 +43,15 @@ exports.handler = async () => {
                 const receipt = {
                     receiptNumber: msg.receiptNumber,
                     price: parseFloat(product.productPrice),
+                    productQuantity: product.productQuantity,
+                    purchaseDate: msg.purchaseDate,
                     payOptionId,
                     productId,
                     storeId,
                     supplierId
                 };
     
-                // TODO address missing fields: product_quantity, purchase_date, 
-    
-                console.log('receipt:', receipt);
+                console.log('receipt generated:', receipt);
 
                 const receiptId = await createReceipt(dbConn, receipt);
 
@@ -62,8 +60,7 @@ exports.handler = async () => {
             
             await dbConn.end(); 
         } catch (error) {
-            // TODO: update error message
-            console.log(error); 
+            console.log('An error occurred while performing some DB operation: ', error); 
         }
 
         await channel.close();
@@ -90,8 +87,7 @@ exports.handler = async () => {
 };
 
 async function getPaymentOption (conn, data) {
-    // TODO replace customerMuskedCardNumber with cardNumber
-    const paymentDesc = (data.paymentInfo.length > 0 && data.paymentInfo.customerMuskedCardNumber) ? 'card' : 'cash';
+    const paymentDesc = (data.paymentInfo.length > 0 && data.paymentInfo.cardNumber) ? 'card' : 'cash';
     const q = 'SELECT `pay_option_id` FROM `payment_options` where `pay_option_desc` = ? ';
     const qResult = await conn.query(q, [paymentDesc]);
 
