@@ -48,7 +48,6 @@ exports.handler = async () => {
         await channel.close();
 
         if (!isEmpty(receipt)) {
-            // TODO check if queue is empty before sending data
             const channel2 = await conn.createChannel();
             const processedQueue = 'processed-data';
             await channel2.assertExchange('receipts', 'direct');
