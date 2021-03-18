@@ -11,37 +11,60 @@ exports.handler = async () => {
     try {
         const conn = await amqp.connect(url);
         const channel = await conn.createChannel();
-        const queue = 'processed-data'; //TODO check if needs rename
+        const queue = 'processed-data';
 
         await channel.assertQueue(queue, {durable: true});
         await channel.prefetch(1);
 
         console.log('[*_o] Waiting for messages in the %s. queue', queue);
+        let msg = {};
 
         await channel.consume(queue, async (data) => {
-            //TODO Add logic to insert the processed receipt into data warehouse
-            const msg = JSON.parse(data.content);
+            msg = JSON.parse(data.content);
 
             console.log(msg);
 
-            // const conn = await mysql.createConnection({
-            //     user: 'db-user-1',
-            //     password: 'db_user-1',
-            //     database: 'project_iv',
-            //     host: '127.0.0.1',
-            //     port: '5431',
-            // });
-
-            // const result = await conn.query(
-            //     'INSERT INTO `payment_options` (`pay_option_desc`) VALUES (?)', ['debit']
-            // );
-    
-            // console.log(result[0]);
-            
-            // await conn.end();
-
             // channel.ack(data);
         }, {noAck: false});
+
+        try {
+            const dbConn = await mysql.createConnection({
+                user: 'db-user-1',
+                password: 'db_user-1',
+                database: 'project_iv',
+                host: '127.0.0.1',
+                port: '5431',
+            });
+    
+            for (const product of msg.products) {
+                const payOptionId = await getPaymentOption(dbConn, msg);
+                const storeId = await getStore(dbConn, msg);
+                const productId = await getProduct(dbConn, product, storeId);
+                const supplierId = await getSupplier(dbConn, product);
+    
+                const receipt = {
+                    receiptNumber: msg.receiptNumber,
+                    price: parseFloat(product.productPrice),
+                    payOptionId,
+                    productId,
+                    storeId,
+                    supplierId
+                };
+    
+                // TODO address missing fields: product_quantity, purchase_date, 
+    
+                console.log('receipt:', receipt);
+
+                const receiptId = await createReceipt(dbConn, receipt);
+
+                console.log('receipt inserted at row ', receiptId);
+            }
+            
+            await dbConn.end(); 
+        } catch (error) {
+            // TODO: update error message
+            console.log(error); 
+        }
 
         await channel.close();
         await conn.close();
@@ -67,6 +90,7 @@ exports.handler = async () => {
 };
 
 async function getPaymentOption (conn, data) {
+    // TODO replace customerMuskedCardNumber with cardNumber
     const paymentDesc = (data.paymentInfo.length > 0 && data.paymentInfo.customerMuskedCardNumber) ? 'card' : 'cash';
     const q = 'SELECT `pay_option_id` FROM `payment_options` where `pay_option_desc` = ? ';
     const qResult = await conn.query(q, [paymentDesc]);
@@ -78,7 +102,7 @@ async function getPaymentOption (conn, data) {
     const i = 'INSERT INTO `payment_options` (`pay_option_desc`) VALUES (?)';
     const iResult = await conn.execute(i, [paymentDesc]);
 
-    return iResult.insertId;
+    return iResult[0].insertId;
 }
 
 async function getStore (conn, data) {
@@ -94,20 +118,41 @@ async function getStore (conn, data) {
       VALUES\
        (?, ?, ?, ?, ?, ?)';
     const iResult = await conn.execute(i, [
-        data.storeName, 
-        data.storeStreetName,
-        data.storeCity, 
-        data.storeProvince, 
-        data.storeZipCode,
-        data.storeContact
+        data.storeInfo.storeName, 
+        data.storeInfo.storeStreetName,
+        data.storeInfo.storeCity, 
+        data.storeInfo.storeProvince, 
+        data.storeInfo.storeZipCode,
+        data.storeInfo.storeContact
     ]);
 
-    return iResult.insertId;
+    return iResult[0].insertId;
 }
 
-async function getProduct (conn, data) {
+async function getSupplier (conn, data) {
+    const q = 'SELECT `supplier_id` FROM `suppliers` WHERE `supplier_name` = ? and `supplier_contact` = ?';
+    const qResult = await conn.query(q, [data.productSupplierName, data.productSupplierContact]);
+
+    if (qResult[0].length && qResult[0][0]) {
+        return qResult[0][0].supplier_id;
+    }
+
+    const i = 'INSERT INTO `suppliers`\
+     (`supplier_name`, `supplier_contact`, `supplier_location`)\
+      VALUES\
+       (?, ?, ?)';
+    const iResult = await conn.execute(i, [
+        data.productSupplierName, 
+        data.productSupplierContact,
+        data.productSupplierLocation
+    ]);
+
+    return iResult[0].insertId;
+}
+
+async function getProduct (conn, data, storeId) {
     const q = 'SELECT `product_id` FROM `products` WHERE `product_name` = ? and `store_id` = ?';
-    const qResult = await conn.query(q, [data.productName, data.storeId]);
+    const qResult = await conn.query(q, [data.productName, storeId]);
 
     if (qResult[0].length && qResult[0][0]) {
         return qResult[0][0].product_id;
@@ -120,9 +165,26 @@ async function getProduct (conn, data) {
     const iResult = await conn.execute(i, [
         data.productName, 
         data.productDescription,
-        data.productPrice, 
-        data.storeId
+        parseFloat(data.productPrice), 
+        storeId,
     ]);
 
-    return iResult.insertId;
+    return iResult[0].insertId;
+}
+
+async function createReceipt(conn, data) {
+    const i = 'INSERT INTO `receipts`\
+     (`receipt_number`, `product_id`, `store_id`, `pay_option_id`, `supplier_id`, `price`)\
+      VALUES\
+       (?, ?, ?, ?, ?, ?)';
+    const iResult = await conn.execute(i, [
+        data.receiptNumber, 
+        data.productId,
+        data.storeId, 
+        data.payOptionId, 
+        data.supplierId,
+        data.price,
+    ]);
+
+    return iResult[0].insertId;
 }
