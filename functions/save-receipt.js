@@ -1,6 +1,11 @@
-const amqp = require('amqplib');
+require('dotenv').config();
 
-const url = "amqps://xrgawglz:9bwYNG_BuoeVu10TBSY70fW6trZdHVVp@rattlesnake.rmq.cloudamqp.com/xrgawglz";
+const process = require('process');
+const amqp = require('amqplib');
+const isPlainObject = require('lodash.isplainobject');
+const isEmpty = require('lodash.isempty');
+
+const url = process.env.RABBITMQ_URL;
 
 exports.handler = async (event) => {
     if (event.httpMethod !== 'POST') {
@@ -16,15 +21,19 @@ exports.handler = async (event) => {
     }
 
     try {
+        const msg = JSON.parse(event.body);
+
+        if (!isPlainObject(msg) || isEmpty(msg)) {
+            throw new SyntaxError('Data sent through is not a PlainObject');
+        }
+
         const conn = await amqp.connect(url);
         const channel = await conn.createChannel();
 
-        //TODO: Add logic to check if event.body has content
-
         const queue = 'raw-data';
-        const msg = event.body;
-        await channel.assertQueue(queue, { durable: true });
-        channel.sendToQueue(queue, Buffer.from(msg), { persistent: true });
+        await channel.assertExchange('receipts', 'direct');
+        await channel.bindQueue(queue, 'receipts', queue);
+        channel.publish('receipts', queue, Buffer.from(JSON.stringify([msg])), { persistent: true });
 
         console.log('[o] The following message was successfully sent to the %s queue:', queue, msg);
 
@@ -36,17 +45,28 @@ exports.handler = async (event) => {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify('Successful'),
+            body: JSON.stringify({'msg': 'Successful'}),
         };
     } catch (error) {
-        console.log(error);
+        console.log(`(>_<") A [${error.name}] occurred on line ${error.lineNumber}: ${error.message} | ${error.stack}`);
 
-        return {
-            statusCode: 500,
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify('An Error occurred'),
+        if (error instanceof SyntaxError) {
+            //Probably JSON sent to the API is flop
+            return {
+                statusCode: 400,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({'error': 'An Error occurred. The data sent through is not a properly structured JSON object'}),
+            };
+        } else {
+            return {
+                statusCode: 500,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({'error': 'An Error occurred. Please try again later.'}),
+            };
         }
     }
 };

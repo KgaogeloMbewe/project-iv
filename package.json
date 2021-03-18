@@ -4,12 +4,16 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "netlify-lambda build functions"
+    "build": "netlify-lambda build functions",
+    "serve": "netlify-lambda serve functions -p 3005"
   },
   "author": "",
   "license": "MIT",
   "dependencies": {
     "amqplib": "^0.7.1",
+    "dotenv": "^8.2.0",
+    "lodash.isempty": "^4.4.0",
+    "lodash.isplainobject": "^4.0.6",
     "netlify-lambda": "^2.0.3"
   },
   "devDependencies": {
