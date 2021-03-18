@@ -2,6 +2,7 @@ require('dotenv').config();
 
 const amqp = require('amqplib');
 const process = require('process');
+const isEmpty = require('lodash.isempty');
 
 const url = process.env.RABBITMQ_URL;
 
@@ -28,6 +29,8 @@ exports.handler = async () => {
             const receiptNumber = msg.subArray[0]['Receipt_Number'];
             const cardNumber = msg.subArray[0]['CardNumber'];
             const paymentType = cardNumber ? 'card' : 'cash';
+            const totalPrice = msg.subArray[0]['Total_Price'];
+            const purchaseDate = msg.subArray[0]['Purchase_Date'];
 
             receipt = {
                 products,
@@ -35,6 +38,8 @@ exports.handler = async () => {
                 receiptNumber,
                 cardNumber,
                 paymentType,
+                totalPrice,
+                purchaseDate,
             };
 
             channel.ack(data);
@@ -42,16 +47,19 @@ exports.handler = async () => {
 
         await channel.close();
 
-        // TODO check if queue is empty before sending data
-        const channel2 = await conn.createChannel();
-        const processedQueue = 'processed-data';
-        await channel2.assertExchange('receipts', 'direct');
-        await channel2.bindQueue(processedQueue, 'receipts', processedQueue);
-        channel2.publish('receipts', processedQueue, Buffer.from(JSON.stringify(receipt)), { persistent: true });
+        if (!isEmpty(receipt)) {
+            // TODO check if queue is empty before sending data
+            const channel2 = await conn.createChannel();
+            const processedQueue = 'processed-data';
+            await channel2.assertExchange('receipts', 'direct');
+            await channel2.bindQueue(processedQueue, 'receipts', processedQueue);
+            channel2.publish('receipts', processedQueue, Buffer.from(JSON.stringify(receipt)), { persistent: true });
 
-        console.log('[o] The following message was successfully processed & sent to the %s queue:', processedQueue, receipt);
+            console.log('[o] The following message was successfully processed & sent to the %s queue:', processedQueue, receipt);
 
-        await channel2.close();
+            await channel2.close();
+        }
+
         await conn.close();
         
         return {
@@ -85,6 +93,7 @@ function mineProducts(data) {
             productSupplierName : receiptItem['Supplier_Name'],
             productSupplierContact : receiptItem['Supplier_Contact'],
             productSupplierLocation : receiptItem['Supplier_Location'],
+            productQuantity: receiptItem['Product_Quantity']
         };
 
         products.push(product);
