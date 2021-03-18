@@ -26,7 +26,7 @@ exports.handler = async () => {
             const products = mineProducts(msg);
             const storeInfo = mineStoreInfo(msg);
             const receiptNumber = msg.subArray[0]['Receipt_Number'];
-            const cardNumber = receiptItem['CardNumber'];
+            const cardNumber = msg.subArray[0]['CardNumber'];
             const paymentType = cardNumber ? 'card' : 'cash';
 
             receipt = {
