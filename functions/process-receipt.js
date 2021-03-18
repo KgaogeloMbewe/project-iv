@@ -2,6 +2,7 @@ require('dotenv').config();
 
 const amqp = require('amqplib');
 const process = require('process');
+const isEmpty = require('lodash.isempty');
 
 const url = process.env.RABBITMQ_URL;
 
@@ -24,26 +25,40 @@ exports.handler = async () => {
             console.log('[o_o] Consuming message as: ', data.fields.consumerTag);
 
             const products = mineProducts(msg);
-            const paymentInfo = minePaymentInfo(msg);
             const storeInfo = mineStoreInfo(msg);
             const receiptNumber = msg.subArray[0]['Receipt_Number'];
+            const cardNumber = msg.subArray[0]['CardNumber'];
+            const paymentType = cardNumber ? 'card' : 'cash';
+            const totalPrice = msg.subArray[0]['Total_Price'];
+            const purchaseDate = msg.subArray[0]['Purchase_Date'];
+
             receipt = {
                 products,
-                paymentInfo,
                 storeInfo,
                 receiptNumber,
+                cardNumber,
+                paymentType,
+                totalPrice,
+                purchaseDate,
             };
 
             channel.ack(data);
         }, {noAck: false});
 
-        const processedQueue = 'processed-data';
-        await channel.assertQueue(processedQueue, { durable: true });
-        channel.sendToQueue(processedQueue, Buffer.from(JSON.stringify(receipt)), { persistent: true });
-
-        console.log('[o] The following message was successfully processed & sent to the %s queue:', processedQueue, receipt);
-
         await channel.close();
+
+        if (!isEmpty(receipt)) {
+            const channel2 = await conn.createChannel();
+            const processedQueue = 'processed-data';
+            await channel2.assertExchange('receipts', 'direct');
+            await channel2.bindQueue(processedQueue, 'receipts', processedQueue);
+            channel2.publish('receipts', processedQueue, Buffer.from(JSON.stringify(receipt)), { persistent: true });
+
+            console.log('[o] The following message was successfully processed & sent to the %s queue:', processedQueue, receipt);
+
+            await channel2.close();
+        }
+
         await conn.close();
         
         return {
@@ -77,6 +92,7 @@ function mineProducts(data) {
             productSupplierName : receiptItem['Supplier_Name'],
             productSupplierContact : receiptItem['Supplier_Contact'],
             productSupplierLocation : receiptItem['Supplier_Location'],
+            productQuantity: receiptItem['Product_Quantity']
         };
 
         products.push(product);
@@ -95,14 +111,5 @@ function mineStoreInfo(data) {
         storeCity: receiptItem['City'],
         storeZipCode: receiptItem['Zip_Code'],
         storeProvince: receiptItem['Province'],
-    };
-}
-
-function minePaymentInfo(data) {
-    const receiptItem = data.subArray[0];
-    
-    return {
-        customerPaymentOption : receiptItem['Cust_Pay_Opt'],
-        customerMuskedCardNumber : receiptItem['CardNumber'],
     };
 }
