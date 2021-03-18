@@ -31,8 +31,9 @@ exports.handler = async (event) => {
         const channel = await conn.createChannel();
 
         const queue = 'raw-data';
-        await channel.assertQueue(queue, { durable: true });
-        channel.sendToQueue(queue, Buffer.from(msg), { persistent: true });
+        await channel.assertExchange('receipts', 'direct');
+        await channel.bindQueue(queue, 'receipts', queue);
+        channel.publish('receipts', queue, Buffer.from(JSON.stringify([msg])), { persistent: true });
 
         console.log('[o] The following message was successfully sent to the %s queue:', queue, msg);
 

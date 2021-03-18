@@ -40,13 +40,18 @@ exports.handler = async () => {
             channel.ack(data);
         }, {noAck: false});
 
+        await channel.close();
+
+        // TODO check if queue is empty before sending data
+        const channel2 = await conn.createChannel();
         const processedQueue = 'processed-data';
-        await channel.assertQueue(processedQueue, { durable: true });
-        channel.sendToQueue(processedQueue, Buffer.from(JSON.stringify(receipt)), { persistent: true });
+        await channel2.assertExchange('receipts', 'direct');
+        await channel2.bindQueue(processedQueue, 'receipts', processedQueue);
+        channel2.publish('receipts', processedQueue, Buffer.from(JSON.stringify(receipt)), { persistent: true });
 
         console.log('[o] The following message was successfully processed & sent to the %s queue:', processedQueue, receipt);
 
-        await channel.close();
+        await channel2.close();
         await conn.close();
         
         return {
