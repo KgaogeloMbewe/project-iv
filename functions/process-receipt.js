@@ -24,14 +24,17 @@ exports.handler = async () => {
             console.log('[o_o] Consuming message as: ', data.fields.consumerTag);
 
             const products = mineProducts(msg);
-            const paymentInfo = minePaymentInfo(msg);
             const storeInfo = mineStoreInfo(msg);
             const receiptNumber = msg.subArray[0]['Receipt_Number'];
+            const cardNumber = receiptItem['CardNumber'];
+            const paymentType = cardNumber ? 'card' : 'cash';
+
             receipt = {
                 products,
-                paymentInfo,
                 storeInfo,
                 receiptNumber,
+                cardNumber,
+                paymentType,
             };
 
             channel.ack(data);
@@ -95,14 +98,5 @@ function mineStoreInfo(data) {
         storeCity: receiptItem['City'],
         storeZipCode: receiptItem['Zip_Code'],
         storeProvince: receiptItem['Province'],
-    };
-}
-
-function minePaymentInfo(data) {
-    const receiptItem = data.subArray[0];
-    
-    return {
-        customerPaymentOption : receiptItem['Cust_Pay_Opt'],
-        customerMuskedCardNumber : receiptItem['CardNumber'],
     };
 }
