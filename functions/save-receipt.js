@@ -58,7 +58,7 @@ exports.handler = async (event) => {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({'error': 'An Error occurred. The data sent through is not a properly structured JSON object'}),
-            }
+            };
         } else {
             return {
                 statusCode: 500,
@@ -66,7 +66,7 @@ exports.handler = async (event) => {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({'error': 'An Error occurred. Please try again later.'}),
-            }
+            };
         }
     }
 };
