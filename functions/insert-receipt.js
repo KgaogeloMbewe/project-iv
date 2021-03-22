@@ -3,6 +3,7 @@ require('dotenv').config();
 const amqp = require('amqplib');
 const process = require('process');
 const { connectDb, createReceipt, getPaymentOption, getProduct, getStore, getSupplier } = require('../util/db-util');
+const publicIp = require('public-ip');
 
 const url = process.env.RABBITMQ_URL;
 
@@ -20,18 +21,19 @@ exports.handler = async () => {
         let msg = {};
 
         try {
-            console.log('[!_!] Trying to connect to DB');
+            const ip = await publicIp.v4();
+            console.log('[!_!] Trying to connect to DB with ip: ', ip);
             dbConn = await connectDb();
 
         } catch (error) {
-            console.log('[>_<] unable to connect to DB');
+            console.log('[>_<] unable to connect to DB', error);
 
             return {
                 statusCode: 500,
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({'error': 'An Error occurred'}),
+                body: JSON.stringify({'error': 'Could not connect to the DB'}),
             };
         }
 
@@ -40,7 +42,7 @@ exports.handler = async () => {
 
             console.log('[o_o] Consuming processed message as: ', data.fields.consumerTag);
 
-            // channel.ack(data);
+            channel.ack(data);
         }, {noAck: false});
 
         await channel.close();
