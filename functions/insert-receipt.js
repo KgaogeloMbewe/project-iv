@@ -20,7 +20,9 @@ exports.handler = async () => {
         let msg = {};
 
         try {
+            console.log('[!_!] Trying to connect to DB');
             dbConn = await connectDb();
+
         } catch (error) {
             console.log('[>_<] unable to connect to DB');
 
@@ -38,7 +40,7 @@ exports.handler = async () => {
 
             console.log('[o_o] Consuming processed message as: ', data.fields.consumerTag);
 
-            channel.ack(data);
+            // channel.ack(data);
         }, {noAck: false});
 
         await channel.close();
