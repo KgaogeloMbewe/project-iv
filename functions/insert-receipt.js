@@ -38,7 +38,7 @@ exports.handler = async () => {
 
             console.log('[o_o] Consuming processed message as: ', data.fields.consumerTag);
 
-            // channel.ack(data);
+            channel.ack(data);
         }, {noAck: false});
 
         await channel.close();
